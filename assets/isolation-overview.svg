@@ -1,0 +1,85 @@
+<svg width="1280" height="780" viewBox="0 0 1280 780" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="flowbg" x1="120" y1="60" x2="1140" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="220" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22C55E"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="0" y1="0" x2="260" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <style>
+      .heading { font-family: 'Segoe UI', Arial, sans-serif; font-size: 44px; font-weight: 800; fill: #F8FAFC; }
+      .label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 18px; font-weight: 800; fill: #D1FAE5; letter-spacing: 1.2px; }
+      .cardTitle { font-family: 'Segoe UI', Arial, sans-serif; font-size: 24px; font-weight: 800; fill: #F8FAFC; }
+      .cardText { font-family: 'Segoe UI', Arial, sans-serif; font-size: 17px; font-weight: 500; fill: #CBD5E1; }
+      .small { font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 700; fill: #E2E8F0; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="780" rx="32" fill="url(#flowbg)"/>
+
+  <text x="76" y="96" class="heading">How the isolation works</text>
+  <text x="76" y="130" class="cardText">Desktop profiles are split from the Codex CLI by isolating app state and clearing inherited desktop env vars.</text>
+
+  <g transform="translate(76 196)">
+    <rect width="308" height="198" rx="26" fill="rgba(34,197,94,0.10)" stroke="rgba(34,197,94,0.38)"/>
+    <text x="26" y="40" class="label">CLI SIDE</text>
+    <text x="26" y="86" class="cardTitle">Your Codex CLI</text>
+    <text x="26" y="120" class="cardText">Keeps its own home, auth,</text>
+    <text x="26" y="147" class="cardText">skills, and custom endpoint.</text>
+    <rect x="26" y="162" width="184" height="18" rx="9" fill="url(#green)"/>
+  </g>
+
+  <g transform="translate(466 188)">
+    <rect width="350" height="214" rx="26" fill="rgba(99,102,241,0.10)" stroke="rgba(129,140,248,0.38)"/>
+    <text x="28" y="44" class="label" fill="#C7D2FE">LAUNCH LAYER</text>
+    <text x="28" y="90" class="cardTitle">Cloned Codex desktop app</text>
+    <text x="28" y="124" class="cardText">Clears OPENAI and ANTHROPIC</text>
+    <text x="28" y="151" class="cardText">proxy vars before launch.</text>
+    <text x="28" y="178" class="cardText">Runs with profile-specific paths.</text>
+  </g>
+
+  <g transform="translate(912 136)">
+    <rect width="292" height="166" rx="24" fill="rgba(236,72,153,0.10)" stroke="rgba(236,72,153,0.36)"/>
+    <text x="24" y="40" class="label" fill="#FBCFE8">PROFILE 1</text>
+    <text x="24" y="82" class="cardTitle">Codex Alpha</text>
+    <text x="24" y="116" class="cardText">Own auth.json, config.toml,</text>
+    <text x="24" y="140" class="cardText">and UI state</text>
+  </g>
+
+  <g transform="translate(912 330)">
+    <rect width="292" height="166" rx="24" fill="rgba(139,92,246,0.10)" stroke="rgba(167,139,250,0.36)"/>
+    <text x="24" y="40" class="label" fill="#DDD6FE">PROFILE 2</text>
+    <text x="24" y="82" class="cardTitle">Codex Bloom</text>
+    <text x="24" y="116" class="cardText">Separate local sessions</text>
+    <text x="24" y="140" class="cardText">and desktop login</text>
+  </g>
+
+  <g transform="translate(912 524)">
+    <rect width="292" height="166" rx="24" fill="rgba(34,211,238,0.10)" stroke="rgba(34,211,238,0.36)"/>
+    <text x="24" y="40" class="label" fill="#CFFAFE">PROFILE 3</text>
+    <text x="24" y="82" class="cardTitle">Codex Nova</text>
+    <text x="24" y="116" class="cardText">Can run in parallel</text>
+    <text x="24" y="140" class="cardText">with the others</text>
+  </g>
+
+  <path d="M384 294 H430" stroke="#22C55E" stroke-width="6" stroke-linecap="round"/>
+  <path d="M816 244 H874 V218 H912" stroke="#818CF8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M816 294 H874 V413 H912" stroke="#818CF8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M816 344 H874 V607 H912" stroke="#818CF8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <g transform="translate(76 472)">
+    <rect width="740" height="208" rx="26" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+    <text x="28" y="52" class="cardTitle">Key idea</text>
+    <text x="28" y="96" class="small">Store Codex is single-instance by default, so this toolkit clones the app binaries</text>
+    <text x="28" y="124" class="small">and launches them with isolated paths.</text>
+    <text x="28" y="160" class="small">That gives each desktop profile its own account and local state, while your CLI can stay</text>
+    <text x="28" y="188" class="small">pointed at a custom provider or proxy.</text>
+    <rect x="28" y="150" width="308" height="14" rx="7" fill="url(#purple)" opacity="0.0"/>
+  </g>
+</svg>

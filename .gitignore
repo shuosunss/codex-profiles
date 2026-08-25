@@ -1,0 +1,10 @@
+# Local editor state
+.vscode/
+.idea/
+
+# Generated shortcuts / logs
+*.lnk
+*.log
+
+# Python cache
+__pycache__/

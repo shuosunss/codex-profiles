@@ -1,0 +1,111 @@
+<svg width="1365" height="768" viewBox="0 0 1365 768" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="60" y1="30" x2="1320" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#061022"/>
+      <stop offset="0.55" stop-color="#0A1633"/>
+      <stop offset="1" stop-color="#15153B"/>
+    </linearGradient>
+    <radialGradient id="tealGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(170 138) rotate(49.5) scale(196 170)">
+      <stop stop-color="#43E8FF" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#43E8FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="purpleTop" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1120 104) rotate(90) scale(168 178)">
+      <stop stop-color="#B769FF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#B769FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="purpleBottom" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1084 628) rotate(90) scale(228 228)">
+      <stop stop-color="#FF4FC6" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#FF4FC6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="noise" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="7" result="turb"/>
+      <feColorMatrix in="turb" type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.05"/>
+      </feComponentTransfer>
+    </filter>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#020617" flood-opacity="0.4"/>
+    </filter>
+    <style>
+      .title { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 72px; font-weight: 800; fill: #F8FAFC; letter-spacing: -1.4px; }
+      .subtitle { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 27px; font-weight: 560; fill: #D5D9E6; }
+      .pillText { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 20px; font-weight: 760; fill: #F3F6FF; }
+      .cardTitle { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 26px; font-weight: 760; fill: #F7FAFF; }
+      .cardText { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 20px; font-weight: 560; fill: #D8DEEC; }
+      .rightLabel { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 18px; font-weight: 800; fill: #E6E7FF; letter-spacing: 1px; }
+      .rightTitle { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 28px; font-weight: 800; fill: #FAFBFF; }
+      .rightText { font-family: 'Segoe UI', Inter, Arial, sans-serif; font-size: 18px; font-weight: 560; fill: #E3E6F5; }
+    </style>
+  </defs>
+
+  <rect x="8" y="8" width="1349" height="752" rx="34" fill="url(#bg)"/>
+  <rect x="8" y="8" width="1349" height="752" rx="34" fill="url(#tealGlow)"/>
+  <rect x="8" y="8" width="1349" height="752" rx="34" fill="url(#purpleTop)"/>
+  <rect x="8" y="8" width="1349" height="752" rx="34" fill="url(#purpleBottom)"/>
+  <rect x="8" y="8" width="1349" height="752" rx="34" filter="url(#noise)"/>
+
+  <text x="88" y="145" class="title">Codex Profiles</text>
+  <text x="88" y="214" class="subtitle">Run multiple isolated Codex desktop profiles on Windows</text>
+  <text x="88" y="256" class="subtitle">without touching your Codex CLI home.</text>
+
+  <g filter="url(#softShadow)">
+    <rect x="88" y="305" width="235" height="53" rx="26.5" fill="rgba(15,82,102,0.85)" stroke="rgba(78,232,255,0.65)" stroke-width="2"/>
+    <text x="122" y="340" class="pillText">Parallel profiles</text>
+
+    <rect x="350" y="305" width="202" height="53" rx="26.5" fill="rgba(40,45,112,0.82)" stroke="rgba(114,125,255,0.55)" stroke-width="2"/>
+    <text x="400" y="340" class="pillText">CLI-safe</text>
+
+    <rect x="580" y="305" width="224" height="53" rx="26.5" fill="rgba(92,40,112,0.78)" stroke="rgba(238,105,255,0.48)" stroke-width="2"/>
+    <text x="623" y="340" class="pillText">MCP-friendly</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="88" y="449" width="382" height="186" rx="28" fill="rgba(28,36,74,0.72)" stroke="rgba(119,157,255,0.24)" stroke-width="2"/>
+    <g transform="translate(118 487)">
+      <rect width="92" height="92" rx="22" fill="rgba(61,240,255,0.13)"/>
+      <rect x="8" y="12" width="36" height="30" rx="8" fill="#9DFBFF" fill-opacity="0.72"/>
+      <rect x="48" y="12" width="36" height="30" rx="8" fill="#D0FDFF" fill-opacity="0.78"/>
+      <rect x="8" y="46" width="36" height="34" rx="8" fill="#4BE1F7" fill-opacity="0.82"/>
+      <rect x="48" y="46" width="36" height="34" rx="8" fill="#C3F7FF" fill-opacity="0.68"/>
+      <rect x="0" y="0" width="92" height="92" rx="22" stroke="rgba(140,251,255,0.34)"/>
+    </g>
+    <text x="260" y="535" class="cardTitle">Desktop profiles</text>
+    <text x="260" y="575" class="cardText">Alpha, Bloom, Nova.</text>
+    <text x="260" y="613" class="cardText">Own auth, config,</text>
+    <text x="260" y="651" class="cardText">and UI data.</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="482" y="449" width="398" height="186" rx="28" fill="rgba(28,36,74,0.72)" stroke="rgba(119,157,255,0.24)" stroke-width="2"/>
+    <g transform="translate(514 483)">
+      <circle cx="52" cy="52" r="52" fill="rgba(94,126,255,0.14)"/>
+      <path d="M52 15C56 22 60 27 67 30C74 33 81 34 88 33C85 42 84 49 86 57C88 64 92 70 98 77C90 79 84 82 79 88C74 94 71 100 69 108C60 104 54 103 46 104C38 105 31 108 23 113C22 104 20 98 15 91C11 84 7 79 0 74C8 69 13 64 16 57C19 50 20 42 19 34C29 36 36 36 43 33C46 32 49 30 52 15Z" fill="#D7E2FF" fill-opacity="0.42"/>
+      <circle cx="52" cy="52" r="18" fill="#8EA8FF" fill-opacity="0.85"/>
+      <circle cx="52" cy="52" r="8" fill="#E8EEFF"/>
+    </g>
+    <text x="621" y="535" class="cardTitle">Environment scrub</text>
+    <text x="621" y="575" class="cardText">Clears proxy and base-</text>
+    <text x="621" y="613" class="cardText">url vars before Codex</text>
+    <text x="621" y="651" class="cardText">desktop launches.</text>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="904" y="117" width="346" height="518" rx="30" fill="rgba(36,26,70,0.63)" stroke="rgba(209,107,255,0.7)" stroke-width="2"/>
+    <text x="944" y="170" class="rightLabel">WINDOWS TOOLKIT</text>
+    <text x="944" y="245" class="rightTitle">Launch many Codex</text>
+    <text x="944" y="288" class="rightTitle">profiles at once</text>
+
+    <rect x="944" y="338" width="266" height="77" rx="22" fill="rgba(82,89,131,0.28)" stroke="rgba(164,173,255,0.25)" stroke-width="2"/>
+    <text x="970" y="381" class="rightText">Clone Store app once</text>
+    <text x="970" y="414" class="rightText">per version</text>
+
+    <rect x="944" y="432" width="266" height="77" rx="22" fill="rgba(82,89,131,0.28)" stroke="rgba(164,173,255,0.25)" stroke-width="2"/>
+    <text x="970" y="475" class="rightText">Isolate CODEX_HOME</text>
+    <text x="970" y="508" class="rightText">and user-data-dir</text>
+
+    <rect x="944" y="526" width="266" height="77" rx="22" fill="rgba(82,89,131,0.28)" stroke="rgba(164,173,255,0.25)" stroke-width="2"/>
+    <text x="970" y="569" class="rightText">Keep custom CLI endpoint</text>
+    <text x="970" y="602" class="rightText">untouched</text>
+  </g>
+</svg>

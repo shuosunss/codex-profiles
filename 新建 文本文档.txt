@@ -1,0 +1,1 @@
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\Install-CodexDesktopProfiles.ps1   -ProfileName cc-switch -CreateDesktopShortcuts
