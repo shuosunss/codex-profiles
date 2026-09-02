@@ -120,7 +120,7 @@ Each profile also gets a stop script that only targets the app launched with tha
 powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\CodexProfiles\alpha\Stop-CodexDesktopProfile.ps1"
 ```
 
-Launching a profile also starts one profile-specific system tray controller. Double-click its icon to open or restore Codex. Its menu can hide the window, stop only that profile, or exit the tray controller. Pass `-NoTrayIcon` to `Start-CodexDesktopProfile.ps1` when you do not want a tray icon.
+Launching a profile also starts one profile-specific system tray controller. Double-click its icon to show or restore Codex. Its menu can show the window, hide the window, or exit that profile and its tray controller. Pass `-NoTrayIcon` to `Start-CodexDesktopProfile.ps1` when you do not want a tray icon.
 
 You can append `-WhatIf` to the public scripts or module functions for a dry run. The installer also accepts comma-separated profile names when invoked through `powershell -File`.
 
