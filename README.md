@@ -1,4 +1,4 @@
-﻿# Codex Profiles
+# Codex Profiles
 
  
 
@@ -38,10 +38,10 @@ The Microsoft Store Codex desktop app behaves like a single-instance Electron ap
 This repo works around that by:
 
 - detecting the installed `OpenAI.Codex` Store package
-- cloning the desktop app binaries into `%LOCALAPPDATA%\\CodexParallelDesktop\\versions\\<version>`
-- launching each profile with its own `CODEX_HOME`
+- activating the desktop app through its MSIX package identity (current Store builds refuse direct exe launches with "no package identity")
+- launching each profile with its own `CODEX_HOME`, published at user scope only for the activation call itself
 - launching each profile with its own Chromium `--user-data-dir`
-- scrubbing inherited proxy / API environment variables before the desktop app starts
+- scrubbing inherited proxy / API environment variables for the activation call
 
 That keeps desktop profiles separate from each other while leaving the Codex CLI home alone.
 
@@ -70,7 +70,7 @@ This repo is designed for the same setup used in testing:
 
 What should work reliably:
 
-- multiple cloned Codex desktop profiles in parallel
+- multiple Codex desktop profiles in parallel
 - isolated desktop `CODEX_HOME` and isolated Chromium `--user-data-dir`
 - desktop launchers that ignore inherited `OPENAI_BASE_URL` / proxy env vars
 - keeping the normal Codex CLI home separate from the desktop profiles
@@ -145,21 +145,11 @@ The MCP block is created only when a new profile config is written, or when you 
 
 ### Microsoft Store app updates
 
-If the Codex desktop app updates through the Microsoft Store, the installed app version can change while your older cloned binaries stay on disk.
+Profiles are activated through the installed Store package at launch time, so app updates are picked up automatically. No refresh step is needed.
 
-In that case, rerun a launcher with `-ForceRefreshClone` to rebuild the clone from the latest Store version:
+Your isolated profile data lives in the profile home and UI data folders, so Store updates do not reset your desktop profiles by themselves.
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\Start-CodexDesktopProfile.ps1 -ProfileName alpha -ForceRefreshClone
-```
-
-You can also refresh all provisioned profiles in one pass:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\windows\Install-CodexDesktopProfiles.ps1 -ProfileName alpha,bloom,apex,prime,flow,turbo,sonic,nova -ForceRefreshClone
-```
-
-This refreshes the cloned app binaries. Your isolated profile data still lives in the profile home and UI data folders, so it should not reset your desktop profiles by itself.
+If an older version of this tool left cloned binaries under `%LOCALAPPDATA%\\CodexParallelDesktop\\versions`, that folder is no longer used and can be deleted.
 
 ### MCP auth and OAuth prompts
 

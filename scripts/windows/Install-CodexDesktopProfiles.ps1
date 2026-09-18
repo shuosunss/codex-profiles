@@ -8,9 +8,7 @@ param(
 
     [switch]$CreateDesktopShortcuts,
 
-    [switch]$CreateStartMenuShortcuts,
-
-    [switch]$ForceRefreshClone
+    [switch]$CreateStartMenuShortcuts
 )
 
 $ErrorActionPreference = 'Stop'

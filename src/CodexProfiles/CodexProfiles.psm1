@@ -68,14 +68,24 @@ function Get-CodexDesktopPackage {
         throw "Codex desktop executable not found under: $appDirectory"
     }
 
+    # Current packaged builds refuse to start when the exe is run directly ("no package identity"),
+    # so profiles must be activated through the package's app user model id (AUMID).
+    $exeLeaf = Split-Path -Path $exePath -Leaf
+    $application = (Get-AppxPackageManifest -Package $package).Package.Applications.Application |
+        Where-Object { (Split-Path -Path $_.Executable -Leaf) -eq $exeLeaf } |
+        Select-Object -First 1
+    if (-not $application) {
+        throw 'No application entry found in the OpenAI.Codex package manifest.'
+    }
+
     [pscustomobject]@{
         Package = $package
         Version = $package.Version.ToString()
-        AppDirectory = $appDirectory
         ExePath = $exePath
+        ProcessName = $exeLeaf
+        AppUserModelId = "$($package.PackageFamilyName)!$($application.Id)"
     }
 }
-
 function Resolve-NpxCommand {
     [CmdletBinding()]
     param()
@@ -111,62 +121,6 @@ function Get-CodexProfilePaths {
         Home = Join-Path $ProfilesRoot $profileKey
         UiData = Join-Path (Join-Path $ParallelRoot 'ui') $profileKey
         ParallelRoot = $ParallelRoot
-    }
-}
-
-function Ensure-CodexDesktopClone {
-    [CmdletBinding(SupportsShouldProcess = $true)]
-    param(
-        [Parameter(Mandatory = $true)]
-        $PackageInfo,
-
-        [string]$ParallelRoot = (Join-Path $env:LOCALAPPDATA 'CodexParallelDesktop'),
-
-        [switch]$ForceRefresh
-    )
-
-    $versionsRoot = Join-Path $ParallelRoot 'versions'
-    $cloneRoot = Join-Path $versionsRoot $PackageInfo.Version
-    $cloneAppDirectory = Join-Path $cloneRoot 'app'
-    $cloneExe = Join-Path $cloneAppDirectory (Split-Path -Path $PackageInfo.ExePath -Leaf)
-
-    if ((-not $ForceRefresh) -and (Test-Path $cloneExe)) {
-        return $cloneExe
-    }
-
-    if ($PSCmdlet.ShouldProcess($cloneAppDirectory, 'Clone Codex desktop binaries')) {
-        New-Item -ItemType Directory -Force -Path $cloneAppDirectory | Out-Null
-        & robocopy.exe $PackageInfo.AppDirectory $cloneAppDirectory /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-        $robocopyExit = $LASTEXITCODE
-        if ($robocopyExit -gt 7) {
-            throw "Failed to clone Codex desktop app (robocopy exit code $robocopyExit)."
-        }
-    }
-
-    if (-not (Test-Path $cloneExe)) {
-        throw "Cloned Codex executable not found: $cloneExe"
-    }
-
-    return $cloneExe
-}
-
-function Clear-CodexDesktopInheritedEnv {
-    [CmdletBinding()]
-    param()
-
-    $varsToRemove = @(
-        'OPENAI_BASE_URL',
-        'OPENAI_API_KEY',
-        'OPENAI_ORG_ID',
-        'OPENAI_PROJECT_ID',
-        'ANTHROPIC_BASE_URL',
-        'ANTHROPIC_API_KEY',
-        'ANTHROPIC_AUTH_TOKEN',
-        'CODEX_THREAD_ID'
-    )
-
-    foreach ($name in $varsToRemove) {
-        Remove-Item -Path ("Env:$name") -ErrorAction SilentlyContinue
     }
 }
 
@@ -244,30 +198,28 @@ function Write-CodexProfileStopScript {
         [string]$StopScriptPath,
 
         [Parameter(Mandatory = $true)]
-        [string]$CloneExe,
+        [string]$ProcessName,
 
         [Parameter(Mandatory = $true)]
         [string]$UiData
     )
 
     # Base64 keeps generated no-BOM scripts compatible with non-ASCII Windows user paths in PowerShell 5.1.
-    $cloneExeBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($CloneExe))
+    $processNameBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($ProcessName))
     $uiDataBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($UiData))
     $content = @(
         '[CmdletBinding(SupportsShouldProcess = $true)]',
         'param()',
         '',
         '$ErrorActionPreference = ''Stop''',
-        '$targetExe = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $cloneExeBase64 + '''))',
+        '$processName = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $processNameBase64 + '''))',
         '$targetUiData = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $uiDataBase64 + '''))',
-        '$processName = [System.IO.Path]::GetFileName($targetExe)',
         '$profileArgument = "--user-data-dir=$targetUiData"',
         '',
-        '# Match the profile-specific main process; taskkill /T also terminates its Electron children.',
+        '# All profiles share the same packaged exe, so the profile-specific main process is matched',
+        '# by its --user-data-dir argument; taskkill /T also terminates its Electron children.',
         '$processes = Get-CimInstance Win32_Process -Filter ("Name = ''{0}''" -f $processName.Replace("''", "''''")) |',
         '    Where-Object {',
-        '        $_.ExecutablePath -and',
-        '        [string]::Equals($_.ExecutablePath, $targetExe, [System.StringComparison]::OrdinalIgnoreCase) -and',
         '        $_.CommandLine -and',
         '        ($_.CommandLine.IndexOf($profileArgument, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) -and',
         '        ($_.CommandLine.IndexOf(''--type='', [System.StringComparison]::OrdinalIgnoreCase) -lt 0)',
@@ -307,7 +259,13 @@ function Write-CodexProfileTrayScript {
         [string]$StopScriptPath,
 
         [Parameter(Mandatory = $true)]
-        [string]$CloneExe,
+        [string]$AppUserModelId,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ProcessName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExePath,
 
         [Parameter(Mandatory = $true)]
         [string]$ProfileHome,
@@ -320,7 +278,9 @@ function Write-CodexProfileTrayScript {
     )
 
     # Encode paths so the generated script remains ASCII-only and works in Windows PowerShell 5.1.
-    $cloneExeBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($CloneExe))
+    $appUserModelIdBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($AppUserModelId))
+    $processNameBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($ProcessName))
+    $exePathBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($ExePath))
     $profileHomeBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($ProfileHome))
     $uiDataBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($UiData))
     $stopScriptBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($StopScriptPath))
@@ -344,30 +304,79 @@ function Write-CodexProfileTrayScript {
         '}',
         "'@",
         '',
-        '$targetExe = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $cloneExeBase64 + '''))',
+        "Add-Type -TypeDefinition @'",
+        'using System;',
+        'using System.Runtime.InteropServices;',
+        'public static class CodexProfileActivator {',
+        '    [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+        '    private interface IApplicationActivationManager {',
+        '        [PreserveSig] int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)] string appUserModelId, [MarshalAs(UnmanagedType.LPWStr)] string arguments, int options, out int processId);',
+        '        [PreserveSig] int ActivateForFile(string appUserModelId, IntPtr itemArray, string verb, out int processId);',
+        '        [PreserveSig] int ActivateForProtocol(string appUserModelId, IntPtr itemArray, out int processId);',
+        '    }',
+        '    [ComImport, Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]',
+        '    private class ApplicationActivationManager { }',
+        '    public static int Activate(string appUserModelId, string arguments) {',
+        '        var manager = (IApplicationActivationManager)new ApplicationActivationManager();',
+        '        int processId;',
+        '        int hr = manager.ActivateApplication(appUserModelId, arguments, 0, out processId);',
+        '        if (hr != 0) { Marshal.ThrowExceptionForHR(hr); }',
+        '        return processId;',
+        '    }',
+        '}',
+        "'@",
+        '',
+        '$appUserModelId = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $appUserModelIdBase64 + '''))',
+        '$processName = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $processNameBase64 + '''))',
+        '$targetExe = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $exePathBase64 + '''))',
         '$profileHome = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $profileHomeBase64 + '''))',
         '$targetUiData = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $uiDataBase64 + '''))',
         '$stopScriptPath = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(''' + $stopScriptBase64 + '''))',
         "`$profileKey = '$escapedProfileKey'",
-        '$processName = [System.IO.Path]::GetFileName($targetExe)',
         '$profileArgument = "--user-data-dir=$targetUiData"',
         '',
         'function Get-ProfileProcesses {',
         '    return @(Get-CimInstance Win32_Process -Filter ("Name = ''{0}''" -f $processName.Replace("''", "''''")) |',
         '        Where-Object {',
-        '            $_.ExecutablePath -and',
-        '            [string]::Equals($_.ExecutablePath, $targetExe, [System.StringComparison]::OrdinalIgnoreCase) -and',
         '            $_.CommandLine -and',
         '            ($_.CommandLine.IndexOf($profileArgument, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)',
         '        })',
         '}',
         '',
         'function Start-ProfileApp {',
-        '    foreach ($name in @(''OPENAI_BASE_URL'',''OPENAI_API_KEY'',''OPENAI_ORG_ID'',''OPENAI_PROJECT_ID'',''ANTHROPIC_BASE_URL'',''ANTHROPIC_API_KEY'',''ANTHROPIC_AUTH_TOKEN'',''CODEX_THREAD_ID'')) {',
-        '        Remove-Item -Path ("Env:$name") -ErrorAction SilentlyContinue',
+        '    # The packaged build refuses a direct exe launch ("no package identity"), so activation goes',
+        '    # through the app user model id. Packaged activation inherits user-level env vars rather than',
+        '    # this process'' env, so CODEX_HOME is published there only for the activation call itself,',
+        '    # with inherited proxy/API vars scrubbed the same way. Values are written straight to the',
+        '    # registry: SetEnvironmentVariable broadcasts WM_SETTINGCHANGE to every top-level window and',
+        '    # can stall for minutes behind a busy app window. The mutex keeps parallel launches apart.',
+        '    $mutex = [System.Threading.Mutex]::new($false, ''Local\CodexProfilesActivate'')',
+        '    $mutex.WaitOne() | Out-Null',
+        '    $envKey = ''HKCU:\Environment''',
+        '    $scrubNames = @(''OPENAI_BASE_URL'',''OPENAI_API_KEY'',''OPENAI_ORG_ID'',''OPENAI_PROJECT_ID'',''ANTHROPIC_BASE_URL'',''ANTHROPIC_API_KEY'',''ANTHROPIC_AUTH_TOKEN'',''CODEX_THREAD_ID'',''CODEX_HOME'')',
+        '    $savedUserEnv = @{}',
+        '    foreach ($name in $scrubNames) {',
+        '        $savedUserEnv[$name] = [Environment]::GetEnvironmentVariable($name, ''User'')',
         '    }',
-        '    $env:CODEX_HOME = $profileHome',
-        '    Start-Process -FilePath $targetExe -WorkingDirectory (Split-Path $targetExe) -ArgumentList @("--user-data-dir=$targetUiData") | Out-Null',
+        '    try {',
+        '        foreach ($name in $scrubNames) {',
+        '            Remove-ItemProperty -Path $envKey -Name $name -ErrorAction SilentlyContinue',
+        '        }',
+        '        Set-ItemProperty -Path $envKey -Name ''CODEX_HOME'' -Value $profileHome',
+        '        [CodexProfileActivator]::Activate($appUserModelId, "--user-data-dir=$targetUiData") | Out-Null',
+        '    }',
+        '    finally {',
+        '        foreach ($name in $scrubNames) {',
+        '            if ($null -eq $savedUserEnv[$name]) {',
+        '                Remove-ItemProperty -Path $envKey -Name $name -ErrorAction SilentlyContinue',
+        '            }',
+        '            else {',
+        '                Set-ItemProperty -Path $envKey -Name $name -Value $savedUserEnv[$name]',
+        '            }',
+        '        }',
+        '        $mutex.ReleaseMutex()',
+        '        $mutex.Dispose()',
+        '    }',
         '}',
         '',
         'function Show-ProfileWindow {',
@@ -541,9 +550,7 @@ function New-CodexDesktopProfile {
 
         [switch]$CreateStartMenuShortcut,
 
-        [string]$LauncherScriptPath,
-
-        [switch]$ForceRefreshClone
+        [string]$LauncherScriptPath
     )
 
     $paths = Get-CodexProfilePaths -ProfileName $ProfileName -ProfilesRoot $ProfilesRoot -ParallelRoot $ParallelRoot
@@ -560,23 +567,22 @@ function New-CodexDesktopProfile {
     Write-CodexProfileConfig -ConfigPath $configPath -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -WhatIf:$WhatIfPreference
 
     $packageInfo = Get-CodexDesktopPackage
-    $cloneExe = Ensure-CodexDesktopClone -PackageInfo $packageInfo -ParallelRoot $ParallelRoot -ForceRefresh:$ForceRefreshClone -WhatIf:$WhatIfPreference
     $stopScriptPath = Join-Path $paths.Home 'Stop-CodexDesktopProfile.ps1'
-    Write-CodexProfileStopScript -StopScriptPath $stopScriptPath -CloneExe $cloneExe -UiData $paths.UiData -WhatIf:$WhatIfPreference
+    Write-CodexProfileStopScript -StopScriptPath $stopScriptPath -ProcessName $packageInfo.ProcessName -UiData $paths.UiData -WhatIf:$WhatIfPreference
     $trayScriptPath = Join-Path $paths.Home 'Show-CodexDesktopProfileTray.ps1'
-    Write-CodexProfileTrayScript -TrayScriptPath $trayScriptPath -StopScriptPath $stopScriptPath -CloneExe $cloneExe -ProfileHome $paths.Home -UiData $paths.UiData -ProfileKey $paths.ProfileKey -WhatIf:$WhatIfPreference
+    Write-CodexProfileTrayScript -TrayScriptPath $trayScriptPath -StopScriptPath $stopScriptPath -AppUserModelId $packageInfo.AppUserModelId -ProcessName $packageInfo.ProcessName -ExePath $packageInfo.ExePath -ProfileHome $paths.Home -UiData $paths.UiData -ProfileKey $paths.ProfileKey -WhatIf:$WhatIfPreference
 
     if ($LauncherScriptPath) {
         $launcherFullPath = (Resolve-Path $LauncherScriptPath).Path
         if ($CreateDesktopShortcut) {
             $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) ("$DisplayName.lnk")
-            New-CodexDesktopShortcut -ShortcutPath $desktopShortcut -LauncherScriptPath $launcherFullPath -ProfileName $ProfileName -DisplayName $DisplayName -IconPath $cloneExe -WhatIf:$WhatIfPreference
+            New-CodexDesktopShortcut -ShortcutPath $desktopShortcut -LauncherScriptPath $launcherFullPath -ProfileName $ProfileName -DisplayName $DisplayName -IconPath $packageInfo.ExePath -WhatIf:$WhatIfPreference
         }
 
         if ($CreateStartMenuShortcut) {
             $startMenuDirectory = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Codex Profiles'
             $startMenuShortcut = Join-Path $startMenuDirectory ("$DisplayName.lnk")
-            New-CodexDesktopShortcut -ShortcutPath $startMenuShortcut -LauncherScriptPath $launcherFullPath -ProfileName $ProfileName -DisplayName $DisplayName -IconPath $cloneExe -WhatIf:$WhatIfPreference
+            New-CodexDesktopShortcut -ShortcutPath $startMenuShortcut -LauncherScriptPath $launcherFullPath -ProfileName $ProfileName -DisplayName $DisplayName -IconPath $packageInfo.ExePath -WhatIf:$WhatIfPreference
         }
     }
 
@@ -587,17 +593,51 @@ function New-CodexDesktopProfile {
         Home = $paths.Home
         UiData = $paths.UiData
         ConfigPath = $configPath
-        CloneExe = $cloneExe
+        ExePath = $packageInfo.ExePath
+        AppUserModelId = $packageInfo.AppUserModelId
         StopScriptPath = $stopScriptPath
         TrayScriptPath = $trayScriptPath
     }
+}
+
+function Add-CodexProfileActivatorType {
+    [CmdletBinding()]
+    param()
+
+    # Add-Type fails when the type already exists in the session; skip if loaded.
+    if ('CodexProfileActivator' -as [type]) {
+        return
+    }
+
+    # Double-quoted here-string is safe: the C# source contains no PowerShell variables.
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class CodexProfileActivator {
+    [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IApplicationActivationManager {
+        [PreserveSig] int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)] string appUserModelId, [MarshalAs(UnmanagedType.LPWStr)] string arguments, int options, out int processId);
+        [PreserveSig] int ActivateForFile(string appUserModelId, IntPtr itemArray, string verb, out int processId);
+        [PreserveSig] int ActivateForProtocol(string appUserModelId, IntPtr itemArray, out int processId);
+    }
+    [ComImport, Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+    private class ApplicationActivationManager { }
+    public static int Activate(string appUserModelId, string arguments) {
+        var manager = (IApplicationActivationManager)new ApplicationActivationManager();
+        int processId;
+        int hr = manager.ActivateApplication(appUserModelId, arguments, 0, out processId);
+        if (hr != 0) { Marshal.ThrowExceptionForHR(hr); }
+        return processId;
+    }
+}
+"@
 }
 
 function Invoke-CodexDesktopLaunch {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$CloneExe,
+        [string]$AppUserModelId,
 
         [Parameter(Mandatory = $true)]
         [string]$ProfileHome,
@@ -610,38 +650,52 @@ function Invoke-CodexDesktopLaunch {
         [switch]$PassThru
     )
 
-    $saved = @{}
-    foreach ($name in @('OPENAI_BASE_URL','OPENAI_API_KEY','OPENAI_ORG_ID','OPENAI_PROJECT_ID','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','CODEX_THREAD_ID','CODEX_HOME')) {
-        $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    Add-CodexProfileActivatorType
+
+    $arguments = @("--user-data-dir=$UiData")
+    if ($AdditionalArguments) {
+        $arguments += $AdditionalArguments
     }
+    $argumentLine = $arguments -join ' '
 
+    # The packaged build refuses a direct exe launch ("no package identity"), so activation goes
+    # through the app user model id. Packaged activation inherits user-level env vars rather than
+    # this process' env, so CODEX_HOME is published there only for the activation call itself,
+    # with inherited proxy/API vars scrubbed the same way. Values are written straight to the
+    # registry: SetEnvironmentVariable broadcasts WM_SETTINGCHANGE to every top-level window and
+    # can stall for minutes behind a busy app window. The mutex keeps parallel launches apart.
+    $mutex = [System.Threading.Mutex]::new($false, 'Local\CodexProfilesActivate')
+    $mutex.WaitOne() | Out-Null
+    $envKey = 'HKCU:\Environment'
+    $scrubNames = @('OPENAI_BASE_URL','OPENAI_API_KEY','OPENAI_ORG_ID','OPENAI_PROJECT_ID','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN','CODEX_THREAD_ID','CODEX_HOME')
+    $savedUserEnv = @{}
+    foreach ($name in $scrubNames) {
+        $savedUserEnv[$name] = [Environment]::GetEnvironmentVariable($name, 'User')
+    }
     try {
-        Clear-CodexDesktopInheritedEnv
-        $env:CODEX_HOME = $ProfileHome
-
-        $arguments = @("--user-data-dir=$UiData")
-        if ($AdditionalArguments) {
-            $arguments += $AdditionalArguments
+        foreach ($name in $scrubNames) {
+            Remove-ItemProperty -Path $envKey -Name $name -ErrorAction SilentlyContinue
         }
-
-        if ($PassThru) {
-            return Start-Process -FilePath $CloneExe -WorkingDirectory (Split-Path $CloneExe) -ArgumentList $arguments -PassThru
-        }
-
-        Start-Process -FilePath $CloneExe -WorkingDirectory (Split-Path $CloneExe) -ArgumentList $arguments | Out-Null
+        Set-ItemProperty -Path $envKey -Name 'CODEX_HOME' -Value $ProfileHome
+        $processId = [CodexProfileActivator]::Activate($AppUserModelId, $argumentLine)
     }
     finally {
-        foreach ($entry in $saved.GetEnumerator()) {
-            if ($null -eq $entry.Value) {
-                Remove-Item -Path ("Env:$($entry.Key)") -ErrorAction SilentlyContinue
+        foreach ($name in $scrubNames) {
+            if ($null -eq $savedUserEnv[$name]) {
+                Remove-ItemProperty -Path $envKey -Name $name -ErrorAction SilentlyContinue
             }
             else {
-                Set-Item -Path ("Env:$($entry.Key)") -Value $entry.Value
+                Set-ItemProperty -Path $envKey -Name $name -Value $savedUserEnv[$name]
             }
         }
+        $mutex.ReleaseMutex()
+        $mutex.Dispose()
+    }
+
+    if ($PassThru) {
+        return Get-Process -Id $processId -ErrorAction SilentlyContinue
     }
 }
-
 function Start-CodexDesktopProfile {
     [CmdletBinding(SupportsShouldProcess = $true)]
     param(
@@ -658,8 +712,6 @@ function Start-CodexDesktopProfile {
 
         [switch]$OverwriteConfig,
 
-        [switch]$ForceRefreshClone,
-
         [string[]]$AdditionalArguments,
 
         [switch]$NoTrayIcon,
@@ -667,10 +719,10 @@ function Start-CodexDesktopProfile {
         [switch]$PassThru
     )
 
-    $profile = New-CodexDesktopProfile -ProfileName $ProfileName -DisplayName $DisplayName -ProfilesRoot $ProfilesRoot -ParallelRoot $ParallelRoot -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -ForceRefreshClone:$ForceRefreshClone -WhatIf:$WhatIfPreference
+    $profile = New-CodexDesktopProfile -ProfileName $ProfileName -DisplayName $DisplayName -ProfilesRoot $ProfilesRoot -ParallelRoot $ParallelRoot -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -WhatIf:$WhatIfPreference
 
     if ($PSCmdlet.ShouldProcess($profile.DisplayName, 'Launch isolated Codex desktop profile')) {
-        $process = Invoke-CodexDesktopLaunch -CloneExe $profile.CloneExe -ProfileHome $profile.Home -UiData $profile.UiData -AdditionalArguments $AdditionalArguments -PassThru:$PassThru
+        $process = Invoke-CodexDesktopLaunch -AppUserModelId $profile.AppUserModelId -ProfileHome $profile.Home -UiData $profile.UiData -AdditionalArguments $AdditionalArguments -PassThru:$PassThru
         if (-not $NoTrayIcon) {
             Start-CodexProfileTray -TrayScriptPath $profile.TrayScriptPath -WhatIf:$WhatIfPreference
         }
@@ -680,7 +732,7 @@ function Start-CodexDesktopProfile {
                 DisplayName = $profile.DisplayName
                 Home = $profile.Home
                 UiData = $profile.UiData
-                CloneExe = $profile.CloneExe
+                AppUserModelId = $profile.AppUserModelId
                 StopScriptPath = $profile.StopScriptPath
                 TrayScriptPath = $profile.TrayScriptPath
                 Process = $process
@@ -704,16 +756,14 @@ function Install-CodexDesktopProfiles {
 
         [switch]$CreateStartMenuShortcuts,
 
-        [string]$LauncherScriptPath,
-
-        [switch]$ForceRefreshClone
+        [string]$LauncherScriptPath
     )
 
     $profileNames = Expand-CodexProfileNames -ProfileName $ProfileName
 
     $results = foreach ($name in $profileNames) {
         $displayName = 'Codex ' + (Get-Culture).TextInfo.ToTitleCase((ConvertTo-CodexProfileKey -ProfileName $name))
-        New-CodexDesktopProfile -ProfileName $name -DisplayName $displayName -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -CreateDesktopShortcut:$CreateDesktopShortcuts -CreateStartMenuShortcut:$CreateStartMenuShortcuts -LauncherScriptPath $LauncherScriptPath -ForceRefreshClone:$ForceRefreshClone -WhatIf:$WhatIfPreference
+        New-CodexDesktopProfile -ProfileName $name -DisplayName $displayName -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -CreateDesktopShortcut:$CreateDesktopShortcuts -CreateStartMenuShortcut:$CreateStartMenuShortcuts -LauncherScriptPath $LauncherScriptPath -WhatIf:$WhatIfPreference
     }
 
     return $results

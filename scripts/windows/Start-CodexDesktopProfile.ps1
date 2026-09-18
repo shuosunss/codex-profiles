@@ -9,8 +9,6 @@ param(
 
     [switch]$OverwriteConfig,
 
-    [switch]$ForceRefreshClone,
-
     [string[]]$AdditionalArguments,
 
     [switch]$NoTrayIcon,
