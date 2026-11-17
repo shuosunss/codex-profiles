@@ -132,10 +132,7 @@ function Get-CodexProfileConfigContent {
 
     $lines = @(
         "forced_login_method = 'chatgpt'",
-        "model_provider = 'openai'",
-        '',
-        '[windows]',
-        'sandbox = "elevated"'
+        "model_provider = 'openai'"
     )
 
     if ($EnableCommonMcp) {
@@ -187,7 +184,7 @@ function Write-CodexProfileConfig {
     if ($PSCmdlet.ShouldProcess($ConfigPath, 'Write profile config')) {
         $parent = Split-Path -Path $ConfigPath -Parent
         New-Item -ItemType Directory -Force -Path $parent | Out-Null
-        Set-Content -Path $ConfigPath -Value $content -Encoding UTF8
+        [System.IO.File]::WriteAllText($ConfigPath, $content, [System.Text.UTF8Encoding]::new($false))
     }
 }
 
@@ -565,6 +562,15 @@ function New-CodexDesktopProfile {
 
     $configPath = Join-Path $paths.Home 'config.toml'
     Write-CodexProfileConfig -ConfigPath $configPath -EnableCommonMcp:$EnableCommonMcp -OverwriteConfig:$OverwriteConfig -WhatIf:$WhatIfPreference
+    if ($PSCmdlet.ShouldProcess($configPath, 'Follow the default Windows sandbox settings')) {
+        # Sync only Windows sandbox keys and keep profile-specific settings intact.
+        try {
+            & (Join-Path $PSScriptRoot 'Sync-WindowsSandbox.ps1') -ProfileHome $paths.Home
+        }
+        catch {
+            Write-Warning ('Windows sandbox configuration was left unchanged: ' + $_.Exception.Message)
+        }
+    }
 
     $packageInfo = Get-CodexDesktopPackage
     $stopScriptPath = Join-Path $paths.Home 'Stop-CodexDesktopProfile.ps1'
