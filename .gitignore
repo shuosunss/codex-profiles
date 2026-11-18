@@ -8,3 +8,8 @@
 
 # Python cache
 __pycache__/
+
+# EXE build products
+build/
+dist/
+bin/

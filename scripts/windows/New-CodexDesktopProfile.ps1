@@ -5,6 +5,8 @@ param(
 
     [string]$DisplayName,
 
+    [string]$SharedHome,
+
     [switch]$EnableCommonMcp,
 
     [switch]$OverwriteConfig,
